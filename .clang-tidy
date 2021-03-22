@@ -1,0 +1,14 @@
+---
+Checks:     '
+  -*,
+  clang-analyzer-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  concurrency-*,
+  -modernize-use-trailing-return-type,
+  -google-build-using-namespace,
+  -readability-simplify-boolean-expr,
+  -readability-magic-numbers,
+  -clang-analyzer-core.DivideZero,
+  '
