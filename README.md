@@ -3,18 +3,6 @@
 MxTasking is a task-based framework that assists the design of latch-free and parallel data structures. 
 MxTasking eases the information exchange between applications and the operating system, resulting in novel opportunities to manage resources in a truly hardware- and application-conscious way.
 
-# Cite 
-The code was used for our SIGMOD'21 paper.
-
-Jan Mühlig and Jens Teubner. 2021. MxTasks: How to Make Efficient Synchronization and Prefetching Easy. In Proceedings of the 2021 International Conference on Management of Data. [[PDF]](http://dbis.cs.tu-dortmund.de/TODO)
-
-    @inproceedings{muehlig2021mxtasks,
-        author = {Jan Mühlig and Jens Teubner},
-        title = {MxTasks: How to Make Efficient Synchronization and Prefetching Easy},
-        booktitle = {Proceedings of the 2021 International Conference on Management of Data},
-        year = {2021}    
-    }
-
 ## Dependencies
 ### For building
 #### Required
