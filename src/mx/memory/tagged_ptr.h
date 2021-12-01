@@ -12,7 +12,7 @@ namespace mx::memory {
 template <class T, typename I> class tagged_ptr
 {
 public:
-    constexpr tagged_ptr() noexcept
+    constexpr tagged_ptr() noexcept : _object_pointer(0U)
     {
         static_assert(sizeof(I) == 2U);
         static_assert(sizeof(tagged_ptr) == 8U);
@@ -81,7 +81,7 @@ private:
     /**
      * Pointer to the instance of T, only 48bit are used.
      */
-    std::uintptr_t _object_pointer : 48 {0U};
+    std::uintptr_t _object_pointer : 48;
 
     /**
      * Information stored within this pointer, remaining 16bit are used.

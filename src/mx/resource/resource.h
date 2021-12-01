@@ -164,7 +164,7 @@ private:
 class information
 {
 public:
-    constexpr information() noexcept = default;
+    constexpr information() noexcept : _channel_id(0U), _synchronization_primitive(0U) { }
     explicit information(const std::uint16_t channel_id,
                          const synchronization::primitive synchronization_primitive) noexcept
         : _channel_id(channel_id), _synchronization_primitive(static_cast<std::uint16_t>(synchronization_primitive))
@@ -182,8 +182,8 @@ public:
     information &operator=(const information &other) = default;
 
 private:
-    std::uint16_t _channel_id : 12 {0U};
-    std::uint16_t _synchronization_primitive : 4 {0U};
+    std::uint16_t _channel_id : 12;
+    std::uint16_t _synchronization_primitive : 4;
 } __attribute__((packed));
 
 /**
