@@ -45,6 +45,7 @@ SET(MX_TASKING_SRC
     src/mx/resource/builder.cpp
     src/mx/tasking/scheduler.cpp
     src/mx/tasking/worker.cpp
+    src/mx/tasking/task.cpp
     src/mx/tasking/profiling/profiling_task.cpp
     src/mx/util/core_set.cpp
     src/mx/util/random.cpp
@@ -69,6 +70,7 @@ add_executable(blinktree_benchmark
     src/application/blinktree_benchmark/main.cpp
     src/application/blinktree_benchmark/benchmark.cpp
 )
+target_link_libraries(blinktree_benchmark pthread numa atomic mxtasking mxbenchmarking)
 
 add_executable(hashjoin_benchmark
     src/application/hashjoin_benchmark/main.cpp
@@ -77,10 +79,10 @@ add_executable(hashjoin_benchmark
     src/application/hashjoin_benchmark/tpch_table_reader.cpp
     src/application/hashjoin_benchmark/notifier.cpp
 )
-
-# Link executables
-target_link_libraries(blinktree_benchmark pthread numa atomic mxtasking mxbenchmarking)
 target_link_libraries(hashjoin_benchmark pthread numa atomic mxtasking mxbenchmarking)
+
+add_executable(hello_world src/application/hello_world/main.cpp)
+target_link_libraries(hello_world pthread numa atomic mxtasking mxbenchmarking)
 
 # Add tests
 if (GTEST)

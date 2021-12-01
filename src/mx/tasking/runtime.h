@@ -260,6 +260,11 @@ public:
         runtime::init(core_set, prefetch_distance, use_system_allocator);
     }
 
+    runtime_guard(const util::core_set &core_set, const std::uint16_t prefetch_distance = 0U) noexcept
+        : runtime_guard(false, core_set, prefetch_distance)
+    {
+    }
+
     ~runtime_guard() noexcept { runtime::start_and_wait(); }
 };
 } // namespace mx::tasking

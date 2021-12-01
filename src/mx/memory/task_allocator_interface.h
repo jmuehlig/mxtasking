@@ -19,7 +19,7 @@ public:
      * @param core_id Core to allocate memory for.
      * @return Allocated memory.
      */
-    virtual void *allocate(std::uint16_t core_id) = 0;
+    [[nodiscard]] virtual void *allocate(std::uint16_t core_id) = 0;
 
     /**
      * Frees the memory at the given core.
@@ -36,12 +36,12 @@ template <std::size_t S> class SystemTaskAllocator final : public TaskAllocatorI
 {
 public:
     constexpr SystemTaskAllocator() noexcept = default;
-    virtual ~SystemTaskAllocator() noexcept = default;
+    ~SystemTaskAllocator() noexcept override = default;
 
     /**
      * @return Allocated memory using systems malloc (but aligned).
      */
-    void *allocate(const std::uint16_t /*core_id*/) override { return std::aligned_alloc(64U, S); }
+    [[nodiscard]] void *allocate(const std::uint16_t /*core_id*/) override { return std::aligned_alloc(64U, S); }
 
     /**
      * Frees the given memory using systems free.

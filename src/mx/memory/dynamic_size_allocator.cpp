@@ -14,10 +14,10 @@ AllocationBlock::AllocationBlock(const std::uint32_t id, const std::uint8_t numa
 }
 
 AllocationBlock::AllocationBlock(AllocationBlock &&other) noexcept
-    : _id(other._id), _numa_node_id(other._numa_node_id), _size(other._size), _allocated_block(other._allocated_block),
-      _free_elements(std::move(other._free_elements)), _available_size(other._available_size)
+    : _id(other._id), _numa_node_id(other._numa_node_id), _size(other._size),
+      _allocated_block(std::exchange(other._allocated_block, nullptr)), _free_elements(std::move(other._free_elements)),
+      _available_size(other._available_size)
 {
-    other._allocated_block = nullptr;
 }
 
 AllocationBlock &AllocationBlock::operator=(AllocationBlock &&other) noexcept

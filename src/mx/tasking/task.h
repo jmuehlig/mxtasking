@@ -16,16 +16,68 @@ enum priority : std::uint8_t
 };
 
 class TaskInterface;
+
+/**
+ * The TaskResult is returned by every task to tell the
+ * runtime what happens next. Possibilities are run a
+ * successor task, remove the returning task or stop
+ * the entire runtime.
+ */
 class TaskResult
 {
 public:
+    /**
+     * Let the runtime know that the given task
+     * should be run as a successor of the current
+     * task. The runtime will schedule that task.
+     *
+     * @param successor_task Task to succeed.
+     * @return A TaskResult that tells the
+     *         runtime to run the given task.
+     */
     static TaskResult make_succeed(TaskInterface *successor_task) noexcept { return TaskResult{successor_task, false}; }
+
+    /**
+     * Let the runtime know that the given task
+     * should be removed after (successfully)
+     * finishing.
+     *
+     * @return A TaskResult that tells the
+     *         runtime to remove the returning task.
+     */
     static TaskResult make_remove() noexcept { return TaskResult{nullptr, true}; }
+
+    /**
+     * Let the runtime know that the given task
+     * should be run as a successor of the current
+     * task and the current task should be removed.
+     *
+     * @param successor_task Task to succeed.
+     * @return A TaskResult that tells the runtime
+     *         to run the given task and remove the
+     *         returning task.
+     */
     static TaskResult make_succeed_and_remove(TaskInterface *successor_task) noexcept
     {
         return TaskResult{successor_task, true};
     }
-    static TaskResult make_null() noexcept { return TaskResult{nullptr, false}; }
+
+    /**
+     * Nothing will happen
+     *
+     * @return An empty TaskResult.
+     */
+    static TaskResult make_null() noexcept { return {}; }
+
+    /**
+     * Let the runtime know to stop after
+     * the returning task.
+     *
+     * @return A TaskResult that tells the
+     *         runtime to top.
+     */
+    static TaskResult make_stop() noexcept;
+
     constexpr TaskResult() = default;
     ~TaskResult() = default;
 
@@ -204,5 +256,14 @@ private:
 
     // Tasks annotations.
     annotation _annotation;
+};
+
+class StopTaskingTask final : public TaskInterface
+{
+public:
+    constexpr StopTaskingTask() noexcept = default;
+    ~StopTaskingTask() override = default;
+
+    TaskResult execute(std::uint16_t /*core_id*/, std::uint16_t /*channel_id*/) override;
 };
 } // namespace mx::tasking

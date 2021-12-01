@@ -50,6 +50,10 @@ Following, the benchmark will be started and print the results for every iterati
 * After that, the time and throughput are written.
 * If `--perf` is enabled, the output will be extended by some perf counters, which are labeled (like throughput).
 
+## Plot the results
+When using `-o FILE`, the results will be written to the given file, using `JSON` format.
+The plot script `scripts/plot_blinktree_benchmark INPUT_FILE [INPUT_FILE ...]` will aggregate and plot the results using one or more of those `JSON` files.
+
 ## Examples
 
 ###### Running workload A using optimistic synchronization

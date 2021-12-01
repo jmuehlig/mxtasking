@@ -28,6 +28,10 @@ For detailed information please see README files in `src/application/<app>` fold
 * [B Link Tree benchmark](src/application/blinktree_benchmark/README.md)  (`src/application/blinktree_benchmark`)
 * [Hash Join benchmark](src/application/hashjoin_benchmark/README.md) (`src/application/hashjoin_benchmark`)
 
+## Example
+We build a small `Hello World!` example, located in `src/application/hello_world`. 
+You might take a look to see how to use `MxTasking`.
+
 ### Simple example for B Link Tree
 * Call `make ycsb-a` to generate the default workload
 * Call `./bin/blinktree_benchmark 1:4` to run benchmark for one to four cores.

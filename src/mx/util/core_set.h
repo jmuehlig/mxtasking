@@ -28,6 +28,13 @@ public:
     };
 
     constexpr core_set() noexcept : _core_identifier({0U}), _numa_nodes(0U) {}
+    explicit core_set(std::initializer_list<std::uint16_t> &&core_ids) noexcept : core_set()
+    {
+        for (const auto core_id : core_ids)
+        {
+            emplace_back(core_id);
+        }
+    }
     ~core_set() noexcept = default;
 
     core_set &operator=(const core_set &other) noexcept = default;
@@ -43,6 +50,8 @@ public:
     }
 
     std::uint16_t operator[](const std::uint16_t index) const noexcept { return _core_identifier[index]; }
+    std::uint16_t front() const { return _core_identifier.front(); }
+    std::uint16_t back() const { return _core_identifier.back(); }
 
     explicit operator bool() const noexcept { return _size > 0U; }
 
@@ -100,6 +109,9 @@ public:
     {
         return _numa_nodes.test(numa_node_id);
     }
+
+    [[nodiscard]] auto begin() const noexcept { return _core_identifier.begin(); }
+    [[nodiscard]] auto end() const noexcept { return _core_identifier.begin() + _size; }
 
 private:
     // List of core identifiers.

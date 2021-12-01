@@ -186,11 +186,6 @@ std::uint64_t Benchmark::tuples_per_core(const std::uint64_t count_join_keys, co
 {
     const auto cache_lines = (count_join_keys * sizeof(std::uint32_t)) / 64U;
     const auto cache_lines_per_core = cache_lines / count_cores;
-    auto p = 1U;
-    while (p < cache_lines_per_core)
-    {
-        p += 64U;
-    }
 
-    return p * (64U / sizeof(std::uint32_t));
+    return cache_lines_per_core * (64U / sizeof(std::uint32_t));
 }

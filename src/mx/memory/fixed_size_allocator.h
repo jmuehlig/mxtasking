@@ -55,7 +55,7 @@ public:
     explicit operator bool() const noexcept { return _memory != nullptr; }
 
 private:
-    void *_memory = nullptr;
+    void *_memory{nullptr};
 };
 
 /**
@@ -64,9 +64,11 @@ private:
  * Internal, the ProcessorHeap bufferes allocated memory
  * to minimize access to the global heap.
  */
-class ProcessorHeap
+class alignas(64) ProcessorHeap
 {
 public:
+    ProcessorHeap() noexcept = default;
+
     explicit ProcessorHeap(const std::uint8_t numa_node_id) noexcept : _numa_node_id(numa_node_id)
     {
         _allocated_chunks.reserve(1024);
@@ -82,8 +84,22 @@ public:
 
         for (const auto free_chunk : _free_chunk_buffer)
         {
-            GlobalHeap::free(static_cast<void *>(free_chunk), Chunk::size());
+            if (static_cast<bool>(free_chunk))
+            {
+                GlobalHeap::free(static_cast<void *>(free_chunk), Chunk::size());
+            }
         }
+    }
+
+    ProcessorHeap &operator=(ProcessorHeap &&other) noexcept
+    {
+        _numa_node_id = std::exchange(other._numa_node_id, std::numeric_limits<std::uint8_t>::max());
+        _free_chunk_buffer = other._free_chunk_buffer;
+        other._free_chunk_buffer.fill(Chunk{});
+        _next_free_chunk.store(other._next_free_chunk.load());
+        _fill_buffer_flag.store(other._fill_buffer_flag.load());
+        _allocated_chunks = std::move(other._allocated_chunks);
+        return *this;
     }
 
     /**
@@ -129,7 +145,7 @@ private:
     inline static constexpr auto CHUNKS = 128U;
 
     // ID of the NUMA node of this ProcessorHeap.
-    alignas(64) const std::uint8_t _numa_node_id;
+    std::uint8_t _numa_node_id{std::numeric_limits<std::uint8_t>::max()};
 
     // Buffer for free chunks.
     std::array<Chunk, CHUNKS> _free_chunk_buffer;
@@ -176,10 +192,7 @@ private:
 template <std::size_t S> class alignas(64) CoreHeap
 {
 public:
-    explicit CoreHeap(ProcessorHeap *processor_heap) noexcept
-        : _processor_heap(processor_heap), _numa_node_id(processor_heap->numa_node_id())
-    {
-    }
+    explicit CoreHeap(ProcessorHeap *processor_heap) noexcept : _processor_heap(processor_heap) { fill_buffer(); }
 
     CoreHeap() noexcept = default;
 
@@ -192,26 +205,15 @@ public:
      *
      * @return Pointer to the new allocated memory.
      */
-    void *allocate() noexcept
+    [[nodiscard]] void *allocate() noexcept
     {
         if (empty())
         {
             fill_buffer();
         }
 
-        auto *free_object = _first;
-        _first = free_object->next();
-
-        if constexpr (config::low_priority_for_external_numa())
-        {
-            free_object->numa_node_id(_numa_node_id);
-
-            return reinterpret_cast<void *>(reinterpret_cast<std::uintptr_t>(free_object) + 64U);
-        }
-        else
-        {
-            return static_cast<void *>(free_object);
-        }
+        auto *free_element = std::exchange(_first, _first->next());
+        return static_cast<void *>(free_element);
     }
 
     /**
@@ -224,29 +226,9 @@ public:
      */
     void free(void *pointer) noexcept
     {
-        if constexpr (config::low_priority_for_external_numa())
-        {
-            const auto address = reinterpret_cast<std::uintptr_t>(pointer);
-            auto *free_object = reinterpret_cast<FreeHeader *>(address - 64U);
-
-            if (free_object->numa_node_id() == _numa_node_id)
-            {
-                free_object->next(_first);
-                _first = free_object;
-            }
-            else
-            {
-                _last->next(free_object);
-                free_object->next(nullptr);
-                _last = free_object;
-            }
-        }
-        else
-        {
-            auto *free_object = static_cast<FreeHeader *>(pointer);
-            free_object->next(_first);
-            _first = free_object;
-        }
+        auto *free_object = static_cast<FreeHeader *>(pointer);
+        free_object->next(_first);
+        _first = free_object;
     }
 
     /**
@@ -258,7 +240,7 @@ public:
         auto chunk = _processor_heap->allocate();
         const auto chunk_address = static_cast<std::uintptr_t>(chunk);
 
-        constexpr auto object_size = config::low_priority_for_external_numa() ? S + 64U : S;
+        constexpr auto object_size = S;
         constexpr auto count_objects = std::uint64_t{Chunk::size() / object_size};
 
         auto *first_free = reinterpret_cast<FreeHeader *>(chunk_address);
@@ -274,21 +256,14 @@ public:
 
         last_free->next(nullptr);
         _first = first_free;
-        _last = last_free;
     }
 
 private:
     // Processor heap to allocate new chunks.
-    ProcessorHeap *_processor_heap = nullptr;
-
-    // ID of the NUMA node the core is placed in.
-    std::uint8_t _numa_node_id = 0U;
+    ProcessorHeap *_processor_heap{nullptr};
 
     // First element of the list of free memory objects.
-    FreeHeader *_first = nullptr;
-
-    // Last element of the list of free memory objects.
-    FreeHeader *_last = nullptr;
+    FreeHeader *_first{nullptr};
 
     /**
      * @return True, when the buffer is empty.
@@ -302,33 +277,24 @@ private:
 template <std::size_t S> class Allocator final : public TaskAllocatorInterface
 {
 public:
-    explicit Allocator(const util::core_set &core_set) : _core_heaps(core_set.size())
+    explicit Allocator(const util::core_set &core_set)
     {
-        _processor_heaps.fill(nullptr);
-
-        for (auto i = 0U; i < core_set.size(); ++i)
+        for (auto node_id = std::uint8_t(0U); node_id < config::max_numa_nodes(); ++node_id)
         {
-            const auto core_id = core_set[i];
-            const auto node_id = system::topology::node_id(core_id);
-            if (_processor_heaps[node_id] == nullptr)
+            if (core_set.has_core_of_numa_node(node_id))
             {
-                _processor_heaps[node_id] =
-                    new (GlobalHeap::allocate_cache_line_aligned(sizeof(ProcessorHeap))) ProcessorHeap(node_id);
+                _processor_heaps[node_id] = ProcessorHeap{node_id};
             }
-
-            auto core_heap = CoreHeap<S>{_processor_heaps[node_id]};
-            core_heap.fill_buffer();
-            _core_heaps.insert(std::make_pair(core_id, std::move(core_heap)));
         }
-    }
 
-    ~Allocator() override
-    {
-        for (auto *processor_heap : _processor_heaps)
+        for (const auto core_id : core_set)
         {
-            delete processor_heap;
+            const auto node_id = system::topology::node_id(core_id);
+            _core_heaps[core_id] = CoreHeap<S>{&_processor_heaps[node_id]};
         }
     }
+
+    ~Allocator() override = default;
 
     /**
      * Allocates memory from the given CoreHeap.
@@ -336,7 +302,7 @@ public:
      * @param core_id ID of the core.
      * @return Allocated memory object.
      */
-    void *allocate(const std::uint16_t core_id) override { return _core_heaps[core_id].allocate(); }
+    [[nodiscard]] void *allocate(const std::uint16_t core_id) override { return _core_heaps[core_id].allocate(); }
 
     /**
      * Frees memory.
@@ -348,9 +314,9 @@ public:
 
 private:
     // Heap for every processor socket/NUMA region.
-    std::array<ProcessorHeap *, config::max_numa_nodes()> _processor_heaps;
+    std::array<ProcessorHeap, config::max_numa_nodes()> _processor_heaps;
 
     // Map from core_id to core-local allocator.
-    std::unordered_map<std::uint16_t, CoreHeap<S>> _core_heaps;
+    std::array<CoreHeap<S>, tasking::config::max_cores()> _core_heaps;
 };
 } // namespace mx::memory::fixed
